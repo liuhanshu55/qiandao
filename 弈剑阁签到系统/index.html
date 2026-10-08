@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>弈剑阁 · 每日签到</title>
+<style>
+  :root {
+    --primary: #6d28d9;
+    --primary-dark: #5b21b6;
+    --gold: #f59e0b;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+    background: #1e1b2e;
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+
+  /* ===== 3D 旋转背景 ===== */
+  .bg-scene {
+    position: fixed; inset: 0; z-index: 0;
+    perspective: 1400px;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; overflow: hidden;
+  }
+  .bg-carousel {
+    position: relative; width: 320px; height: 452px;
+    transform-style: preserve-3d;
+    animation: bgSpin 36s linear infinite;
+  }
+  .bg-carousel .face {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center;
+    border-radius: 18px;
+    border: 3px solid rgba(255,255,255,0.25);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  @keyframes bgSpin {
+    from { transform: rotateX(-8deg) rotateY(0deg); }
+    to   { transform: rotateX(-8deg) rotateY(360deg); }
+  }
+  .bg-overlay {
+    position: fixed; inset: 0; z-index: 1;
+    background: radial-gradient(circle at 50% 40%, rgba(30,27,46,0.62) 0%, rgba(30,27,46,0.9) 100%);
+  }
+
+  /* ===== 主容器 ===== */
+  .app { position: relative; z-index: 2; max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
+
+  header { text-align: center; color: #fff; margin-bottom: 22px; }
+  header .logo { font-size: 15px; letter-spacing: 6px; color: var(--gold); margin-bottom: 6px; }
+  header h1 { font-size: 34px; font-weight: 800; letter-spacing: 4px; text-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  header .sub { margin-top: 10px; font-size: 15px; color: rgba(255,255,255,0.85); }
+
+  .date-badge {
+    display: inline-block; margin-top: 14px; padding: 8px 18px;
+    border-radius: 999px; font-size: 14px;
+    background: rgba(255,255,255,0.12); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.2); color: #fff;
+  }
+  .date-badge .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+  .dot.on { background: var(--success); box-shadow: 0 0 10px var(--success); }
+  .dot.off { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+
+  .status-line { margin-top: 12px; font-size: 13px; color: rgba(255,255,255,0.75); }
+  .status-line a { color: #c4b5fd; }
+
+  /* ===== 卡片 ===== */
+  .card {
+    background: rgba(255,255,255,0.94); border-radius: 22px; padding: 28px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.45); backdrop-filter: blur(8px);
+  }
+
+  .tabs { display: flex; gap: 10px; margin-bottom: 24px; border-bottom: 2px solid var(--line); }
+  .tabs button {
+    flex: 1; padding: 13px 10px; font-size: 16px; font-weight: 600;
+    border: none; background: none; color: var(--muted); cursor: pointer;
+    position: relative; transition: color 0.2s;
+  }
+  .tabs button.active { color: var(--primary); }
+  .tabs button.active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -2px;
+    height: 3px; background: var(--primary); border-radius: 3px;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h2.section { font-size: 18px; margin-bottom: 16px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+
+  /* ===== 签到区 ===== */
+  .signin-box { text-align: center; padding: 10px 0; }
+  .name-select-wrap { max-width: 360px; margin: 0 auto 22px; text-align: left; }
+  .name-select-wrap label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+
+  select, input[type="text"], input[type="password"], input[type="date"] {
+    width: 100%; padding: 13px 14px; font-size: 15px;
+    border: 2px solid var(--line); border-radius: 12px; background: #fff; color: var(--ink);
+    outline: none; transition: border 0.2s;
+  }
+  select:focus, input:focus { border-color: var(--primary); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 15px 28px; font-size: 18px; font-weight: 700;
+    border: none; border-radius: 14px; cursor: pointer; letter-spacing: 3px;
+    transition: transform 0.1s, background 0.2s, box-shadow 0.2s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { color: #fff; background: linear-gradient(135deg, var(--primary), #8b5cf6); box-shadow: 0 10px 26px rgba(109,40,217,0.4); }
+  .btn-primary:hover { background: linear-gradient(135deg, var(--primary-dark), #7c3aed); }
+  .btn-success { color: #fff; background: linear-gradient(135deg, #16a34a, var(--success)); box-shadow: 0 10px 26px rgba(34,197,94,0.4); cursor: default; }
+  .btn-disabled { color: #fff; background: linear-gradient(135deg, #94a3b8, #64748b); cursor: not-allowed; box-shadow: none; }
+  .big-btn { width: 100%; max-width: 360px; font-size: 20px; padding: 17px; }
+
+  .today-summary { margin-top: 26px; padding-top: 20px; border-top: 1px dashed var(--line); text-align: left; }
+  .summary-count { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
+  .summary-count b { color: var(--primary); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 6px 12px; border-radius: 999px; font-size: 13px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  .chip.ok { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+  .chip.absent { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+
+  .remind-box { margin-top: 18px; padding: 16px; border-radius: 14px; background: #fffbeb; border: 1px solid #fde68a; }
+  .remind-box h3 { font-size: 15px; color: #b45309; margin-bottom: 10px; }
+  .remind-list { margin-bottom: 12px; }
+  .remind-list li { list-style: none; padding: 6px 10px; margin-bottom: 5px; background: #fff; border-radius: 8px; border: 1px solid #fde68a; font-size: 14px; color: #92400e; }
+  .btn-sm { padding: 9px 16px; font-size: 13px; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; letter-spacing: 1px; }
+  .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+  .btn-outline:hover { background: #f5f3ff; }
+
+  /* ===== 表格 ===== */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 11px 12px; text-align: center; border-bottom: 1px solid var(--line); }
+  th { background: #f8fafc; color: var(--muted); font-weight: 700; font-size: 13px; }
+  tr:hover td { background: #fafaf5; }
+  .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge-full { background: #dcfce7; color: #15803d; }
+  .badge-miss { background: #fef2f2; color: #b91c1c; }
+
+  .praise-wrap { margin-top: 16px; }
+  .praise-item {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin-bottom: 8px;
+    border-radius: 12px; background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 1px solid #fcd34d; font-size: 15px; color: #92400e;
+  }
+  .praise-item .name { font-weight: 700; }
+  .praise-item .emoji { font-size: 22px; }
+
+  /* ===== 管理区 ===== */
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .admin-block { border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .admin-block h3 { font-size: 15px; margin-bottom: 14px; color: var(--ink); }
+
+  .member-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+  .member-row .name { font-size: 14px; font-weight: 600; }
+  .btn-remove { padding: 4px 10px; font-size: 12px; border: none; border-radius: 8px; background: #fee2e2; color: #b91c1c; cursor: pointer; }
+  .btn-remove:hover { background: #fecaca; }
+
+  .inline-form { display: flex; gap: 8px; margin-bottom: 14px; }
+  .inline-form input { flex: 1; }
+  .inline-form .btn { padding: 11px 16px; font-size: 14px; letter-spacing: 1px; }
+
+  .period-row { padding: 10px; margin-bottom: 8px; border-radius: 10px; border: 1px solid var(--line); background: #fafafa; font-size: 13px; }
+  .period-row .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .period-row .meta { color: var(--muted); margin-top: 4px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  .tag.need { background: #dcfce7; color: #15803d; }
+  .tag.no { background: #fef3c7; color: #b45309; }
+
+  .login-box { max-width: 360px; margin: 0 auto; }
+  .login-box .btn { width: 100%; margin-top: 12px; }
+
+  .field-row { margin-bottom: 12px; text-align: left; }
+  .field-row label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  .field-row input[type="date"] { margin-bottom: 8px; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+
+  .share-box { margin-top: 20px; padding: 16px; border-radius: 14px; background: #f5f3ff; border: 1px solid #ddd6fe; text-align: center; }
+  .share-box .url { font-size: 16px; font-weight: 700; color: var(--primary); word-break: break-all; margin: 10px 0; }
+  .share-box img { border-radius: 10px; border: 1px solid var(--line); background: #fff; }
+
+  .footer-note { margin-top: 22px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.7; }
+
+  /* ===== 弹窗 ===== */
+  .modal-mask { position: fixed; inset: 0; z-index: 999; background: rgba(17,24,39,0.55); display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(3px); }
+  .modal-mask.show { display: flex; animation: maskIn 0.2s ease; }
+  @keyframes maskIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: #fff; border-radius: 20px; padding: 38px 34px 30px; text-align: center; max-width: 340px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.3); animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes pop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-icon { font-size: 52px; margin-bottom: 12px; }
+  .modal-title { font-size: 21px; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+  .modal-text { font-size: 15px; color: var(--muted); margin-bottom: 22px; }
+  .modal .btn { width: 100%; }
+
+  @media (max-width: 720px) {
+    .admin-grid { grid-template-columns: 1fr; }
+    header h1 { font-size: 26px; }
+    .card { padding: 20px; }
+    .bg-carousel { width: 240px; height: 340px; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-scene"><div class="bg-carousel" id="bgCarousel"></div></div>
+  <div class="bg-overlay"></div>
+
+  <div class="app">
+    <header>
+      <div class="logo">弈 剑 阁 武 术 协 会</div>
+      <h1>每日签到</h1>
+      <p class="sub">以武会友 · 静候君至</p>
+      <div class="date-badge" id="dateBadge"></div>
+      <div class="status-line" id="statusLine"></div>
+    </header>
+
+    <div class="card">
+      <div class="tabs">
+        <button class="active" data-tab="signin">📝 签到</button>
+        <button data-tab="stats">📊 统计</button>
+        <button data-tab="admin">⚙️ 管理</button>
+      </div>
+
+      <!-- 签到 -->
+      <section class="panel active" id="tab-signin">
+        <div class="signin-box">
+          <h2 class="section">今日签到</h2>
+          <div class="name-select-wrap">
+            <label for="nameSelect">选择你的姓名</label>
+            <select id="nameSelect"></select>
+          </div>
+          <button class="btn btn-primary big-btn" id="signBtn">✅ 点击签到</button>
+          <p class="hint" id="signHint"></p>
+
+          <div class="today-summary">
+            <p class="summary-count" id="summaryCount"></p>
+            <div class="chips" id="signedChips"></div>
+          </div>
+
+          <div class="remind-box" id="remindBox" style="display:none;">
+            <h3>🔔 今日签到提醒</h3>
+            <ul class="remind-list" id="remindList"></ul>
+            <button class="btn-sm btn-outline" id="copyRemindBtn">📋 复制提醒文案</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 统计 -->
+      <section class="panel" id="tab-stats">
+        <h2 class="section">📅 单日缺席统计</h2>
+        <div class="field-row" style="max-width:280px;">
+          <label for="queryDate">选择日期（默认今天）</label>
+          <input type="date" id="queryDate">
+        </div>
+        <div id="dailyAbsent"></div>
+
+        <h2 class="section" style="margin-top:26px;">📊 本周签到统计</h2>
+        <div id="weeklyStats"></div>
+      </section>
+
+      <!-- 管理 -->
+      <section class="panel" id="tab-admin">
+        <div id="adminLogin">
+          <div class="login-box">
+            <h2 class="section" style="justify-content:center;">管理员登录</h2>
+            <div class="field-row">
+              <label for="pwdInput">管理密码</label>
+              <input type="password" id="pwdInput" placeholder="请输入管理密码">
+            </div>
+            <button class="btn btn-primary" id="loginBtn">登 录</button>
+            <p class="hint" id="loginHint"></p>
+          </div>
+        </div>
+
+        <div id="adminPanel" style="display:none;">
+          <div class="admin-grid">
+            <div class="admin-block">
+              <h3>👥 成员管理</h3>
+              <div class="inline-form">
+                <input type="text" id="newMember" placeholder="输入新成员姓名">
+                <button class="btn btn-primary" id="addMemberBtn">加入</button>
+              </div>
+              <div id="memberList"></div>
+            </div>
+
+            <div class="admin-block">
+              <h3>🗓️ 特殊时段设置</h3>
+              <div class="field-row">
+                <label>开始日期</label>
+                <input type="date" id="periodStart">
+              </div>
+              <div class="field-row">
+                <label>结束日期</label>
+                <input type="date" id="periodEnd">
+              </div>
+              <div class="field-row">
+                <label>该时段是否需要签到</label>
+                <select id="periodRequire">
+                  <option value="true">需要签到</option>
+                  <option value="false">不需要签到</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <label for="periodNote">备注（可选）</label>
+                <input type="text" id="periodNote" placeholder="如：寒假 / 假期">
+              </div>
+              <button class="btn btn-primary" id="addPeriodBtn" style="width:100%;">添加时段</button>
+              <div id="periodList" style="margin-top:14px;"></div>
+            </div>
+          </div>
+
+          <div class="admin-grid" style="margin-top:20px;">
+            <div class="admin-block">
+              <h3>🔑 修改管理密码</h3>
+              <div class="field-row">
+                <label for="newPwd">新密码</label>
+                <input type="password" id="newPwd" placeholder="输入新密码">
+              </div>
+              <button class="btn btn-primary" id="changePwdBtn" style="width:100%;">保存新密码</button>
+            </div>
+            <div class="admin-block">
+              <h3>🛠️ 其他操作</h3>
+              <button class="btn btn-outline" id="resetBtn" style="width:100%;margin-bottom:10px;color:#b91c1c;border-color:#b91c1c;">清空所有签到记录</button>
+              <button class="btn btn-outline" id="logoutBtn" style="width:100%;">退出登录</button>
+            </div>
+          </div>
+
+          <div class="share-box">
+            <h3 style="font-size:15px;">📲 分享访问地址给同学</h3>
+            <div class="url" id="shareUrl"></div>
+            <button class="btn-sm btn-outline" id="copyUrlBtn">📋 复制地址</button>
+            <div style="margin-top:12px;">
+              <p class="hint" style="margin-bottom:8px;">手机扫一扫打开（需联网生成二维码）</p>
+              <img id="qrImg" alt="访问二维码" style="display:none;">
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <p class="footer-note">
+      本页面为联网版，签到数据保存在服务器上，所有同学实时共享。<br>
+      默认管理密码：<b>yijiange</b>（登录「管理」后请修改）
+    </p>
+  </div>
+
+  <!-- 弹窗 -->
+  <div class="modal-mask" id="modalMask">
+    <div class="modal">
+      <div class="modal-icon">🎉</div>
+      <div class="modal-title">签到成功</div>
+      <div class="modal-text">你已签到成功</div>
+      <button class="btn btn-success" id="modalOkBtn">确定</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var IMAGES = [
+      'a29b0df4d0fb0023173df8688f8da876.jpg',
+      'fd8829ba1410d801166266c1ced1f086.jpg'
+    ];
+    var PRAISE = ['你很棒！', '太优秀了！', '继续保持！', '为你点赞！', '全勤标兵，真厉害！', '棒极了！', '真了不起！'];
+    var WEEKS = ['日', '一', '二', '三', '四', '五', '六'];
+
+    var state = {
+      members: [],
+      records: {},
+      specialPeriods: [],
+      todayRequired: true,
+      serverUrl: ''
+    };
+    var adminLoggedIn = false;
+    var adminPassword = sessionStorage.getItem('yijiange_admin_pwd') || '';
+    var lastMembersKey = '';
+    var online = false;
+
+    function $(id) { return document.getElementById(id); }
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    /* ============ 日期工具 ============ */
+    function dateStr(d) {
+      var y = d.getFullYear();
+      var m = ('0' + (d.getMonth() + 1)).slice(-2);
+      var day = ('0' + d.getDate()).slice(-2);
+      return y + '-' + m + '-' + day;
+    }
+    function todayStr() { return dateStr(new Date()); }
+    function parseDate(s) { var p = s.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+    function addDays(d, n) { var r = new Date(d); r.setDate(r.getDate() + n); return r; }
+    function getMonday(d) { var day = d.getDay(); return addDays(d, -(day === 0 ? 6 : day - 1)); }
+    function weekDates(base) {
+      var mon = getMonday(base), arr = [];
+      for (var i = 0; i < 7; i++) arr.push(dateStr(addDays(mon, i)));
+      return arr;
+    }
+
+    function isSigninRequired(ds) {
+      for (var i = state.specialPeriods.length - 1; i >= 0; i--) {
+        var p = state.specialPeriods[i];
+        if (p.start <= ds && ds <= p.end) return p.requireSignin;
+      }
+      return true;
+    }
+    function isSignedIn(name, ds) { return !!(state.records[ds] && state.records[ds][name]); }
+    function getAbsent(ds) {
+      var signed = state.records[ds] || {};
+      return state.members.filter(function (m) { return !signed[m]; });
+    }
+
+    /* ============ 与服务器通信 ============ */
+    function post(url, body) {
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json(); });
+    }
+
+    async function fetchState() {
+      try {
+        var r = await fetch('/api/state');
+        var s = await r.json();
+        state = s;
+        online = true;
+        renderData();
+      } catch (e) {
+        online = false;
+        $('statusLine').innerHTML = '⚠️ 无法连接服务器，请确认服务已启动';
+      }
+    }
+
+    /* ============ 渲染 ============ */
+    function renderData() {
+      renderHeader();
+      renderNameSelect();
+      renderSignButton();
+      renderTodaySummary();
+      renderRemind();
+      renderDailyAbsent();
+      renderWeekly();
+      renderAdminLists();
+    }
+
+    function renderHeader() {
+      var now = new Date();
+      var ds = todayStr();
+      var need = isSigninRequired(ds);
+      var week = '星期' + WEEKS[now.getDay()];
+      $('dateBadge').innerHTML = need
+        ? '<span class="dot on"></span>' + ds + ' · ' + week + ' · 今日需签到'
+        : '<span class="dot off"></span>' + ds + ' · ' + week + ' · 今日免签到';
+
+      var conn = online ? '🟢 已连接服务器' : '🔴 未连接';
+      var urlHtml = state.serverUrl
+        ? '　·　同学访问：<a href="' + escapeHtml(state.serverUrl) + '" target="_blank">' + escapeHtml(state.serverUrl) + '</a>'
+        : '';
+      $('statusLine').innerHTML = conn + urlHtml;
+    }
+
+    function renderNameSelect() {
+      var membersKey = state.members.join(',');
+      if (membersKey === lastMembersKey) return;
+      lastMembersKey = membersKey;
+
+      var select = $('nameSelect');
+      var saved = localStorage.getItem('yijiange_lastname') || '';
+      select.innerHTML = '';
+      if (state.members.length === 0) {
+        var opt0 = document.createElement('option');
+        opt0.value = ''; opt0.textContent = '暂无成员，请到「管理」添加';
+        select.appendChild(opt0);
+      }
+      state.members.forEach(function (m) {
+        var opt = document.createElement('option');
+        opt.value = m; opt.textContent = m;
+        if (m === saved) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (saved && state.members.indexOf(saved) >= 0) select.value = saved;
+    }
+
+    function selectedName() {
+      return $('nameSelect').value || '';
+    }
+
+    function renderSignButton() {
+      var btn = $('signBtn');
+      var hint = $('signHint');
+      var name = selectedName();
+      var ds = todayStr();
+
+      if (!isSigninRequired(ds)) {
+        btn.className = 'btn btn-disabled big-btn';
+        btn.textContent = '☀️ 今日免签到';
+        btn.disabled = true;
+        hint.textContent = '今日为特殊免签时段，无需签到。';
+      } else if (state.members.length === 0) {
+        btn.className = 'btn btn-disabled big-btn';
+        btn.textContent = '✅ 点击签到';
+        btn.disabled = true;
+        hint.textContent = '';
+      } else if (name && isSignedIn(name, ds)) {
+        btn.className = 'btn btn-success big-btn';
+        btn.textContent = '✅ 今日已签到';
+        btn.disabled = false;
+        hint.textContent = name + ' 今日已完成签到，明天再来哦～';
+      } else {
+        btn.className = 'btn btn-primary big-btn';
+        btn.textContent = '✅ 点击签到';
+        btn.disabled = false;
+        hint.textContent = '选择姓名后，点击按钮完成签到。';
+      }
+    }
+
+    function renderTodaySummary() {
+      var ds = todayStr();
+      var signed = state.records[ds] || {};
+      var signedNames = Object.keys(signed);
+      $('summaryCount').innerHTML = '今日签到情况：<b>' + signedNames.length + '</b> / ' + state.members.length + ' 人已签到';
+      $('signedChips').innerHTML = state.members.map(function (m) {
+        return signed[m]
+          ? '<span class="chip ok">✔ ' + escapeHtml(m) + '</span>'
+          : '<span class="chip absent">✘ ' + escapeHtml(m) + '</span>';
+      }).join('') || '<span class="chip">暂无成员</span>';
+    }
+
+    function renderRemind() {
+      var ds = todayStr();
+      var absent = getAbsent(ds);
+      var box = $('remindBox');
+      if (!isSigninRequired(ds) || absent.length === 0) {
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = 'block';
+      $('remindList').innerHTML = absent.map(function (m) {
+        return '<li>' + escapeHtml(m) + '：你当日还未签到哦</li>';
+      }).join('');
+    }
+
+    function renderDailyAbsent() {
+      var qDate = $('queryDate');
+      var ds = qDate.value || todayStr();
+      var absent = getAbsent(ds);
+      var container = $('dailyAbsent');
+      if (!isSigninRequired(ds)) {
+        container.innerHTML = '<p class="hint">该日期为免签到时段，不计缺席。</p>';
+        return;
+      }
+      if (absent.length === 0) {
+        container.innerHTML = '<p class="hint">🎉 该日全员签到，无缺席人员。</p>';
+        return;
+      }
+      container.innerHTML =
+        '<p class="hint" style="margin-bottom:10px;">该日未签到 <b style="color:#b91c1c;">' + absent.length + '</b> 人：</p>' +
+        '<div class="chips">' + absent.map(function (m) {
+          return '<span class="chip absent">✘ ' + escapeHtml(m) + '</span>';
+        }).join('') + '</div>';
+    }
+
+    function renderWeekly() {
+      var dates = weekDates(new Date());
+      var required = dates.filter(function (d) {
+        return d <= todayStr() && isSigninRequired(d);
+      });
+      var stats = state.members.map(function (name) {
+        var count = 0;
+        required.forEach(function (d) { if (isSignedIn(name, d)) count++; });
+        return { name: name, count: count, total: required.length, full: required.length > 0 && count === required.length };
+      });
+      var fullMembers = stats.filter(function (s) { return s.full; });
+
+      var rows = stats.map(function (s) {
+        var status;
+        if (s.full) status = '<span class="badge badge-full">全勤</span>';
+        else if (s.total === 0) status = '<span class="badge badge-miss">本周免签</span>';
+        else status = '<span class="badge badge-miss">缺勤 ' + (s.total - s.count) + ' 天</span>';
+        return '<tr><td>' + escapeHtml(s.name) + '</td><td>' + s.count + ' / ' + s.total + '</td><td>' + status + '</td></tr>';
+      }).join('');
+
+      var html = '<table><thead><tr><th>姓名</th><th>本周签到次数</th><th>状态</th></tr></thead><tbody>' +
+        rows + '</tbody></table>';
+
+      if (fullMembers.length > 0) {
+        html += '<div class="praise-wrap"><h3 style="font-size:15px;margin-bottom:10px;">🏆 本周全勤鼓励</h3>';
+        html += fullMembers.map(function (s) {
+          var word = PRAISE[Math.floor(Math.random() * PRAISE.length)];
+          return '<div class="praise-item"><span class="emoji">🌟</span><span class="name">' +
+            escapeHtml(s.name) + '</span>：' + word + '</div>';
+        }).join('');
+        html += '</div>';
+      }
+      $('weeklyStats').innerHTML = html;
+    }
+
+    function renderAdminLists() {
+      $('adminLogin').style.display = adminLoggedIn ? 'none' : 'block';
+      $('adminPanel').style.display = adminLoggedIn ? 'block' : 'none';
+      if (!adminLoggedIn) return;
+
+      $('memberList').innerHTML = state.members.map(function (m, idx) {
+        return '<div class="member-row"><span class="name">' + escapeHtml(m) +
+          '</span><button class="btn-remove" data-idx="' + idx + '">移除</button></div>';
+      }).join('') || '<p class="hint">暂无成员</p>';
+
+      $('periodList').innerHTML = state.specialPeriods.map(function (p) {
+        var tag = p.requireSignin
+          ? '<span class="tag need">需签到</span>'
+          : '<span class="tag no">免签到</span>';
+        return '<div class="period-row"><div class="top"><span>' + escapeHtml(p.start) + ' ~ ' +
+          escapeHtml(p.end) + '</span>' + tag +
+          '<button class="btn-remove" data-pid="' + p.id + '">删除</button></div>' +
+          (p.note ? '<div class="meta">备注：' + escapeHtml(p.note) + '</div>' : '') + '</div>';
+      }).join('') || '<p class="hint">暂无特殊时段</p>';
+
+      // 分享地址 + 二维码
+      if (state.serverUrl) {
+        $('shareUrl').textContent = state.serverUrl;
+        var qr = $('qrImg');
+        qr.style.display = 'inline-block';
+        qr.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(state.serverUrl);
+      }
+    }
+
+    /* ============ 3D 背景 ============ */
+    function buildCarousel() {
+      var wrap = $('bgCarousel');
+      var count = 6, radius = 278;
+      for (var i = 0; i < count; i++) {
+        var face = document.createElement('div');
+        face.className = 'face';
+        face.style.backgroundImage = 'url(' + IMAGES[i % IMAGES.length] + ')';
+        face.style.transform = 'rotateY(' + (i * (360 / count)) + 'deg) translateZ(' + radius + 'px)';
+        wrap.appendChild(face);
+      }
+    }
+
+    /* ============ 弹窗 ============ */
+    function showModal() { $('modalMask').classList.add('show'); }
+    function hideModal() { $('modalMask').classList.remove('show'); }
+
+    /* ============ 操作 ============ */
+    async function doCheckin() {
+      var name = selectedName();
+      if (!name) { alert('请先选择姓名'); return; }
+      if (!isSigninRequired(todayStr())) { alert('今日为免签到时段，无需签到。'); return; }
+      var s = await post('/api/checkin', { name: name });
+      if (s.ok) {
+        await fetchState();
+        showModal();
+      } else {
+        alert(s.error || '签到失败');
+      }
+    }
+
+    async function doLogin() {
+      var pwd = $('pwdInput').value;
+      var s = await post('/api/login', { password: pwd });
+      if (s.ok) {
+        adminLoggedIn = true;
+        adminPassword = pwd;
+        sessionStorage.setItem('yijiange_admin_pwd', pwd);
+        $('pwdInput').value = '';
+        $('loginHint').textContent = '';
+        renderAdminLists();
+      } else {
+        $('loginHint').textContent = '密码错误，请重试。';
+      }
+    }
+
+    async function addMember() {
+      var name = $('newMember').value.trim();
+      if (!name) { alert('请输入姓名'); return; }
+      var s = await post('/api/member', { password: adminPassword, action: 'add', name: name });
+      if (s.ok) { $('newMember').value = ''; await fetchState(); }
+      else alert(s.error || '操作失败');
+    }
+
+    async function removeMember(idx) {
+      var name = state.members[idx];
+      if (!confirm('确定移除成员「' + name + '」吗？')) return;
+      var s = await post('/api/member', { password: adminPassword, action: 'remove', name: name });
+      if (s.ok) await fetchState();
+      else alert(s.error || '操作失败');
+    }
+
+    async function addPeriod() {
+      var start = $('periodStart').value;
+      var end = $('periodEnd').value;
+      var require = $('periodRequire').value === 'true';
+      var note = $('periodNote').value.trim();
+      if (!start || !end) { alert('请选择开始和结束日期'); return; }
+      if (start > end) { alert('开始日期不能晚于结束日期'); return; }
+      var s = await post('/api/period', { password: adminPassword, action: 'add', start: start, end: end, requireSignin: require, note: note });
+      if (s.ok) { $('periodNote').value = ''; await fetchState(); }
+      else alert(s.error || '操作失败');
+    }
+
+    async function removePeriod(id) {
+      var s = await post('/api/period', { password: adminPassword, action: 'remove', id: id });
+      if (s.ok) await fetchState();
+      else alert(s.error || '操作失败');
+    }
+
+    async function changePassword() {
+      var np = $('newPwd').value.trim();
+      if (!np) { alert('请输入新密码'); return; }
+      var s = await post('/api/password', { password: adminPassword, newPassword: np });
+      if (s.ok) {
+        adminPassword = np;
+        sessionStorage.setItem('yijiange_admin_pwd', np);
+        $('newPwd').value = '';
+        alert('密码已修改成功');
+      } else alert(s.error || '操作失败');
+    }
+
+    async function resetRecords() {
+      if (!confirm('确定清空所有签到记录吗？此操作不可恢复。')) return;
+      var s = await post('/api/reset', { password: adminPassword });
+      if (s.ok) { await fetchState(); alert('已清空所有签到记录'); }
+      else alert(s.error || '操作失败');
+    }
+
+    function copyText(text, tip) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { alert(tip || '已复制'); })
+          .catch(function () { fallbackCopy(text, tip); });
+      } else fallbackCopy(text, tip);
+    }
+    function fallbackCopy(text, tip) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); alert(tip || '已复制'); }
+      catch (e) { alert('复制失败，请手动复制'); }
+      document.body.removeChild(ta);
+    }
+
+    /* ============ 事件绑定 ============ */
+    function bindEvents() {
+      var tabs = document.querySelectorAll('.tabs button');
+      tabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          tabs.forEach(function (b) { b.classList.remove('active'); });
+          btn.classList.add('active');
+          var target = btn.getAttribute('data-tab');
+          ['signin', 'stats', 'admin'].forEach(function (t) {
+            $('tab-' + t).classList.toggle('active', t === target);
+          });
+        });
+      });
+
+      $('signBtn').addEventListener('click', doCheckin);
+      $('nameSelect').addEventListener('change', function () {
+        localStorage.setItem('yijiange_lastname', this.value);
+        renderSignButton();
+      });
+
+      $('modalOkBtn').addEventListener('click', hideModal);
+      $('modalMask').addEventListener('click', function (e) { if (e.target === $('modalMask')) hideModal(); });
+
+      $('copyRemindBtn').addEventListener('click', function () {
+        var text = getAbsent(todayStr()).map(function (m) { return m + '：你当日还未签到哦'; }).join('\n');
+        copyText(text, '已复制提醒文案到剪贴板');
+      });
+
+      $('queryDate').addEventListener('change', renderDailyAbsent);
+
+      $('loginBtn').addEventListener('click', doLogin);
+      $('pwdInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
+
+      $('addMemberBtn').addEventListener('click', addMember);
+      $('newMember').addEventListener('keydown', function (e) { if (e.key === 'Enter') addMember(); });
+      $('memberList').addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn-remove');
+        if (btn) removeMember(parseInt(btn.getAttribute('data-idx'), 10));
+      });
+
+      $('addPeriodBtn').addEventListener('click', addPeriod);
+      $('periodList').addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn-remove');
+        if (btn) removePeriod(Number(btn.getAttribute('data-pid')));
+      });
+
+      $('changePwdBtn').addEventListener('click', changePassword);
+      $('resetBtn').addEventListener('click', resetRecords);
+      $('logoutBtn').addEventListener('click', function () {
+        adminLoggedIn = false;
+        adminPassword = '';
+        sessionStorage.removeItem('yijiange_admin_pwd');
+        renderAdminLists();
+      });
+
+      $('copyUrlBtn').addEventListener('click', function () {
+        copyText(state.serverUrl, '已复制访问地址');
+      });
+    }
+
+    /* ============ 每日自动刷新 & 轮询 ============ */
+    function watchDayChange() {
+      var lastDay = todayStr();
+      setInterval(function () {
+        var cur = todayStr();
+        if (cur !== lastDay) {
+          lastDay = cur;
+          fetchState();
+        }
+      }, 30000);
+    }
+
+    /* ============ 初始化 ============ */
+    function init() {
+      buildCarousel();
+      $('queryDate').value = todayStr();
+      bindEvents();
+      // 若本次会话曾登录过，自动进入管理面板
+      if (adminPassword) adminLoggedIn = true;
+      fetchState();
+      setInterval(fetchState, 5000); // 每 5 秒同步一次，保证多端数据实时一致
+      watchDayChange();
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>
